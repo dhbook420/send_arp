@@ -57,12 +57,7 @@ int main(int argc, char *argv[]) {
     for (int i = 2; i < argc; i += 2) { //check format x.x.x.x
         Ip send_ip = Ip(argv[i]);
         Ip target_ip = Ip(argv[i + 1]);
-	/*
-        if (!send_ip.isvalid() | !target_ip.isvalid()) {
-            cout << "Invalid Ip address\n";
-            return false;
-        }
-	*/
+	
         send_tar_ips.push_back(sender_target_ip{send_ip, target_ip});
     }
 
@@ -73,7 +68,6 @@ int main(int argc, char *argv[]) {
         //send arp request
         Mac sender_mac("00:00:00:00:00:00");
         //get real target's mac addr
-	cout << string(send_tar_ips[i].sender) << endl;
         if (!send_arp_request(interface.c_str(), iface_mac, iface_ip,
             send_tar_ips[i].sender, sender_mac)) {
             cout << "Failed to get mac addr\n";
@@ -148,48 +142,32 @@ bool send_arp_request(const char* dev, Mac my_mac, Ip my_ip, Ip target_ip, Mac& 
     packet.arp_.tmac_ = Mac("00:00:00:00:00:00");
     packet.arp_.tip_ = htonl(static_cast<uint32_t>(target_ip));
     
-    cout << "made packet" <<endl;
-    cout << "arg ip is "<<string(target_ip) << endl;
-    cout << "wrote on packet : " <<string(Ip(packet.arp_.tip_)) << endl;
     
     int res = pcap_sendpacket(pcap, reinterpret_cast<const u_char*>(&packet), sizeof(EthArpPacket));
     if (res != 0) {
         fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pcap));
     }
-    cout << "sent" << endl;
     struct pcap_pkthdr* header;
     const uint8_t* recv_pkt;
     int res_recv;
     EthArpPacket pkt;
 
     while (true) {
-	cout << "why" << endl;
+	
         res_recv = pcap_next_ex(pcap, &header, &recv_pkt);
-	cout << "recv" << endl;
         if (res_recv == 0) continue;
-	cout << "sibal" << endl;
-        if (res_recv == PCAP_ERROR || res_recv == PCAP_ERROR_BREAK) {
+	if (res_recv == PCAP_ERROR || res_recv == PCAP_ERROR_BREAK) {
             break;
         }
 
         memcpy(&pkt, recv_pkt, sizeof(EthArpPacket));
-	cout << "memcpy" <<endl;
-	cout << string(Mac(pkt.eth_.dmac_)) << endl;
-	cout << string(Mac(pkt.eth_.smac_)) << endl;
-        cout << ntohs(pkt.eth_.type_) << endl;
-	cout << pkt.arp_.op_ << endl;
 	if (ntohs(pkt.eth_.type_) != EthHdr::Arp) continue;
-	cout << "1" << endl;
-        if (ntohs(pkt.arp_.op_) != ArpHdr::Reply) continue;
-	cout << "2" << endl;
-        if (ntohl(pkt.arp_.sip_) != target_ip) continue;
-	cout << "3" << endl;
-        break;
+	if (ntohs(pkt.arp_.op_) != ArpHdr::Reply) continue;
+	if (ntohl(pkt.arp_.sip_) != target_ip) continue;
+	break;
     }
 
     Mac target_mac_tmp = pkt.arp_.smac_;
-
-    cout << string(target_mac_tmp) << endl;
     target_mac = target_mac_tmp;
     pcap_close(pcap);
     return true;
