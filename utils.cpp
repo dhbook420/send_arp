@@ -49,6 +49,7 @@ Ip::Ip(const std::string r) {
         return;
     }
     ip_ = (a << 24) | (b << 16) | (c << 8) | d;
+    valid = true;
 }
 
 Ip::operator std::string() const {
