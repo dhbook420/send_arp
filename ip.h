@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+
 struct Ip final {
 	static const int Size = 4;
 
@@ -31,9 +32,8 @@ struct Ip final {
 		uint8_t prefix = (ip_ & 0xFF000000) >> 24;
 		return prefix >= 0xE0 && prefix < 0xF0;
 	}
+	
 
-	bool isvalid() const {return valid;}
 protected:
 	uint32_t ip_;
-	bool valid = false;
-};
+	};
