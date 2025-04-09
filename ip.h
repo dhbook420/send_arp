@@ -32,6 +32,8 @@ struct Ip final {
 		return prefix >= 0xE0 && prefix < 0xF0;
 	}
 
+	bool isvalid() const {return valid;}
 protected:
 	uint32_t ip_;
+	bool valid = false;
 };
