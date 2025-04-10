@@ -38,7 +38,7 @@ bool getMacIpAddr(string &iface_name, Mac& mac_addr, Ip& ip_addr);
 bool arp_infection(const char *dev, Mac attack_mac, Mac sender_mac, Ip sender_ip, Ip target_ip);
 
 int main(int argc, char *argv[]) {
-    if (argc & 1) {
+    if ((argc & 1) || (argc < 4)) {
         usage();
         return false;
     }
